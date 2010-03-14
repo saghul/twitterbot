@@ -1,0 +1,20 @@
+TwitterBot by saghul
+====================
+
+TwitterBot is an easy way of creating a Twitter bot which twitts everything
+tagged with a givven tag.
+
+For getting TwitterBot to work you need to create a SQLite database:
+
+$ > sqlite3 twitterbot.db
+sqlite> CREATE TABLE repeated_twitts(id integer unique not null);
+sqlite> .quit
+
+And add a cron job with the necessary parameters:
+
+*/5 * * * *     /home/saghul/twitterbot/twitter-bot.py -u asteriskbot -p your_password -t asterisk
+
+  * -u: Username
+  * -p: Password
+  * -t: Hashtag
+

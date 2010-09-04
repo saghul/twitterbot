@@ -43,7 +43,7 @@ class TwitterBot(object):
         except twitter.TwitterError, e:
             raise RuntimeError(str(e))
         else:
-            self.user = user.GetId()
+            self.user = user.GetName()
 
     def start(self, searchtag):
         try:

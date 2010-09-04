@@ -4,17 +4,25 @@ TwitterBot by saghul
 TwitterBot is an easy way of creating a Twitter bot which twitts everything
 tagged with a givven tag.
 
-For getting TwitterBot to work you need to create a SQLite database:
+For getting TwitterBot to work you need to create a SQLite database using FTS3:
 
 $ > sqlite3 twitterbot.db
-sqlite> CREATE TABLE repeated_twitts(id integer unique not null);
+sqlite> CREATE VIRTUAL TABLE twitts USING fts3(id, content);
 sqlite> .quit
 
 And add a cron job with the necessary parameters:
 
-*/5 * * * *     /home/saghul/twitterbot/twitter-bot.py -u asteriskbot -p your_password -t asterisk
+*/5 * * * *     /home/saghul/work/git/twitterbot/twitter-bot.py -t asterisk > /dev/null 2>&1
 
-  * -u: Username
-  * -p: Password
-  * -t: Hashtag
+  -t: Hashtag
+
+You'll need to edit the config.ini file, because Twitter now only
+allows OAuth based authentication
+
+Dependencies:
+------------
+  * python-application: http://pypi.python.org/pypi/python-application/
+  * python-feedparser: http://feedparser.org
+  * python-oauth2: http://pypi.python.org/pypi/oauth2/
+  * python-twitter (trunk version): http://pypi.python.org/pypi/python-twitter/
 

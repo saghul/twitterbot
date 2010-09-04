@@ -1,103 +1,124 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+# Copyright (C) 2010 Saúl ibarra Corretgé <saghul@gmail.com>
+#
 
-
-from pysqlite2 import dbapi2 as sqlite
+import feedparser
+import os
+import re
+import sys
+import twitter
 import urllib
 import urllib2
-import feedparser
-import twitter
-import getopt
-import sys
-import os
+
+from application.configuration import ConfigSection
+from optparse import OptionParser
+from pysqlite2 import dbapi2 as sqlite
 
 
-TWITTERBOT_DB = "%s/twitterbot.db" % os.path.dirname(sys.argv[0])
+TWITTERBOT_CFG = "%s/config.ini" % (os.path.dirname(sys.argv[0]) or '.')
+TWITTERBOT_DB = "%s/twitterbot.db" % (os.path.dirname(sys.argv[0]) or '.')
+
+class Config(ConfigSection):
+    __cfgfile__ = TWITTERBOT_CFG
+    __section__ = 'twitterbot'
+
+    consumer_key = ''
+    consumer_secret = ''
+    access_token_key = ''
+    access_token_secret = ''
 
 class TwitterBot(object):
+    _rt_regex = re.compile(r"^(RT @\w+ )*(?P<tweet>.*)$")
+    _via_regex = re.compile(r"^(?P<tweet>.*)\(via @\w+\)$")
 
-	def __init__(self, user, passw):
-		self.user = user
-		self.api = twitter.Api(username=user, password=passw)
+    def __init__(self):
+	self._api = twitter.Api(username=Config.consumer_key, 
+                                password=Config.consumer_secret,
+                                access_token_key=Config.access_token_key,
+                                access_token_secret=Config.access_token_secret)
+        try:
+            user = self._api.VerifyCredentials()
+        except twitter.TwitterError, e:
+            raise RuntimeError(str(e))
+        else:
+            self.user = user.GetId()
 
-	def startBot(self, searchtag):
-		try:
-			con = sqlite.connect(TWITTERBOT_DB)
-			con.isolation_level = None
-			twitts = self._search(searchtag)
+    def start(self, searchtag):
+        try:
+            con = sqlite.connect(TWITTERBOT_DB)
+            con.isolation_level = None
+            twitts = self.search_tag(searchtag)
+            for twitt in reversed(twitts['entries']):
+                twitt_id = twitt.id.split(':')[2]
+                twitt_author = twitt.author.split(' ')[0]
+                twitt_content = twitt.title
 
-			for twitt in reversed(twitts['entries']):
-				twitt_id = twitt.id.split(':')[2]
-				twitt_author = twitt.author.split(' ')[0]
+                if self.user == twitt_author:
+                    # I don't want to RT my own twitts!
+                    continue
 
-				if self.user == twitt_author:
-					# I don't want to RT my own twitts!
-					continue
+                db_id = con.execute("SELECT id FROM twitts WHERE id MATCH %s LIMIT 1" % twitt_id)
+                if db_id.fetchall():
+                    # We already twitted this!
+                    continue
 
-				db_id = con.execute("SELECT id FROM repeated_twitts WHERE id = %s LIMIT 1" % twitt_id)
+                # Avoid duplicated twitts because of retwitting
+                tmp = twitt_content
+                if tmp.find('RT @') != -1:
+                    tmp = tmp[tmp.find('RT @'):]
+                m = self._rt_regex.match(tmp) or self._via_regex.match(tmp)
+                if m:
+                    data = m.groupdict()
+                    tmp = data['tweet']
+                    if not tmp:
+                        continue
+                    db_content = con.execute("SELECT id FROM twitts WHERE content MATCH '%s'" % tmp)
+                    if db_content.fetchall():
+                        continue
+                try:
+                    self._api.PostUpdate("RT @%s: %s" % (twitt_author,  twitt_content))
+                except twitter.TwitterError:
+                    pass
+                else:
+                    con.execute("INSERT INTO twitts(id, content) VALUES('%s', '%s')" % (twitt_id, twitt_content))
+            con.close()
+        except sqlite.Error, e:
+            print "[SQLite error: %s]" % str(e)
+            sys.exit(1)
 
-				if db_id.fetchall():
-					# We already twitted this!
-					continue
-
-				try:
-					self.api.PostUpdate("@%s: %s" % (twitt_author,  twitt.title))
-
-				except:
-					pass
-
-				else:
-					con.execute("INSERT INTO repeated_twitts(id) VALUES(%s)" % twitt_id)
-
-			con.close()
-
-		except sqlite.Error, e:
-			print "[ERROR]", e
-			sys.exit(1)
-
-	def _doRequest(self, url, data=None):
-	    try:
-	        opener = urllib2.build_opener()
-	        opener.addheaders = [ ( 'User-agent', 'Mozilla/5.0' ) ]
-	        req = urllib2.Request(url, data)
-	        return opener.open(req)
-	    except urllib2.HTTPError, err:
-	        print str(err)
-		
-	def _search(self, tag, lang='en'):
-	    data = urllib.urlencode({'tag' : tag, 'lang' : lang})
-	    f = self._doRequest('http://search.twitter.com/search.atom', data)
-	    d = feedparser.parse(f.read())
-	    return d
+    def search_tag(self, tag, lang='en'):
+        url = 'http://search.twitter.com/search.atom'
+        data = urllib.urlencode({'tag' : tag, 'lang' : lang})
+        try:
+            opener = urllib2.build_opener()
+            opener.addheaders = [ ( 'User-agent', 'Mozilla/5.0' ) ]
+            req = urllib2.Request(url, data)
+        except urllib2.HTTPError, err:
+            print str(err)
+            return {}
+        else:
+            d = feedparser.parse(opener.open(req).read())
+            if d.bozo == 1:
+                return {}
+            return d
 
 
 if __name__ == "__main__":
-    usage = "python twitterbot.py -u username -p password -t search_tag"
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], "u:p:t:")
-        if len(opts) == 3:
-	    for o, a in opts:
-		if o == "-u":
-		    user = a
-		    continue
-		elif o == "-p":
-		    passw = a
-		    continue
-		elif o == "-t":
-		    tag = a
-		    continue
+    if not Config.consumer_key or not Config.consumer_secret or not Config.access_token_key or not Config.access_token_secret:
+        print "Please, fill the confion file"
+        sys.exit(1)
 
-	    tb = TwitterBot(user, passw)
-	    tb.startBot(tag)
-	    sys.exit(0)
+    usage = "usage: %prog [options]"
+    parser = OptionParser(usage=usage)
+    parser.add_option('-t', dest='tag', help='Hashtag to search for')
+    options, args = parser.parse_args()
 
-        else:
-	    print usage
-	    sys.exit(1)
-
-    except getopt.GetoptError, err:
-        print str(err)
-        print usage
+    if options.tag:
+        bot = TwitterBot()
+	bot.start(options.tag)
+    else:
+        parser.print_help()
         sys.exit(1)
 

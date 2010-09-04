@@ -1,0 +1,14 @@
+; TwitterBot configuration
+[twitterbot]
+; Consumer key
+; consumer_key = 
+;
+; Consumer secret
+; consumer_secret = 
+;
+; Access token key
+; access_token_key = 
+;
+; Access token secret
+; access_token_secret = 
+

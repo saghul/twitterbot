@@ -59,7 +59,7 @@ class TwitterBot(object):
                     # I don't want to RT my own twitts!
                     continue
 
-                db_id = con.execute("SELECT id FROM twitts WHERE id MATCH %s LIMIT 1" % twitt_id)
+                db_id = con.execute('SELECT id FROM twitts WHERE id MATCH "%s" LIMIT 1' % twitt_id)
                 if db_id.fetchall():
                     # We already twitted this!
                     continue
@@ -74,7 +74,7 @@ class TwitterBot(object):
                     tmp = data['tweet']
                     if not tmp:
                         continue
-                    db_content = con.execute("SELECT id FROM twitts WHERE content MATCH '%s'" % tmp)
+                    db_content = con.execute('SELECT id FROM twitts WHERE content MATCH "%s"' % tmp)
                     if db_content.fetchall():
                         continue
                 try:
@@ -82,7 +82,7 @@ class TwitterBot(object):
                 except twitter.TwitterError:
                     pass
                 else:
-                    con.execute("INSERT INTO twitts(id, content) VALUES('%s', '%s')" % (twitt_id, twitt_content))
+                    con.execute('INSERT INTO twitts(id, content) VALUES("%s", "%s") % (twitt_id, twitt_content)')
             con.close()
         except sqlite.Error, e:
             print "[SQLite error: %s]" % str(e)

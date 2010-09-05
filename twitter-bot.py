@@ -31,7 +31,7 @@ class Config(ConfigSection):
     access_token_secret = ''
 
 class TwitterBot(object):
-    _rt_regex = re.compile(r"^(RT @\w+: )*(?P<tweet>.*)$")
+    _rt_regex = re.compile(r"^(RT @\w+: )+(?P<tweet>.*)$")
     _via_regex = re.compile(r"^(?P<tweet>.*)\(via @\w+\)$")
 
     def __init__(self):

@@ -13,6 +13,7 @@ import urllib
 import urllib2
 
 from application.configuration import ConfigSection
+from application import log
 from optparse import OptionParser
 from pysqlite2 import dbapi2 as sqlite
 
@@ -83,12 +84,12 @@ class TwitterBot(object):
                         message = "%s..." % message[:137]
                     self._api.PostUpdate(message)
                 except twitter.TwitterError, e:
-                    print "-- ERROR: %s" % e.message
+                    log.error("Twitter Error: %s" % e.message)
                 else:
                     con.execute("INSERT INTO twitts(id, content) VALUES(?, ?)", [twitt_id, message])
             con.close()
         except sqlite.Error, e:
-            print "[SQLite error: %s]" % str(e)
+            log.fatal("SQLite error: %s" % str(e))
             sys.exit(1)
 
     def search_tag(self, tag, lang='en'):
@@ -110,7 +111,7 @@ class TwitterBot(object):
 
 if __name__ == "__main__":
     if not Config.consumer_key or not Config.consumer_secret or not Config.access_token_key or not Config.access_token_secret:
-        print "Please, fill the confion file"
+        log.fatal("Please, fill the confion file")
         sys.exit(1)
 
     usage = "usage: %prog [options]"
@@ -119,6 +120,7 @@ if __name__ == "__main__":
     options, args = parser.parse_args()
 
     if options.tag:
+        log.start_syslog("twitterbot")
         bot = TwitterBot()
 	bot.start(options.tag)
     else:

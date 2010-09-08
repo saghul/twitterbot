@@ -75,7 +75,7 @@ class TwitterBot(object):
                     tmp = data['tweet']
                     if not tmp:
                         continue
-                    db_content = con.execute("SELECT id FROM twitts WHERE content MATCH ?", [tmp])
+                    db_content = con.execute("SELECT id FROM twitts WHERE content MATCH ?", [tmp[:100]])
                     if db_content.fetchall():
                         continue
                 try:

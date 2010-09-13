@@ -52,7 +52,10 @@ class TwitterBot(object):
             con.isolation_level = None
             twitts = self.search_tag(searchtag)
             for twitt in reversed(twitts['entries']):
-                twitt_id = twitt.id.split(':')[2]
+                try:
+                    twitt_id = twitt.id.split(':')[2]
+                except IndexError:
+                    twitt_id = twitt.id.split(':')
                 twitt_author = twitt.author.split(' ')[0]
                 twitt_content = twitt.title
 

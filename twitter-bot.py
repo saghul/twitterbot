@@ -55,7 +55,7 @@ class TwitterBot(object):
             max_id = db_max.fetchone()[0]
 
             twitts = self._api.GetSearch("#"+searchtag, include_entities=True, count=100,lang='en', since_id=max_id)
-            for twitt in twitts:
+            for twitt in reversed(twitts):
                 try:
                     twitt_id = twitt.id
                 except IndexError:

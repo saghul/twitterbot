@@ -35,8 +35,8 @@ class TwitterBot(object):
     _via_regex = re.compile(r"^(?P<tweet>.*)\(via @\w+\)$")
 
     def __init__(self):
-	self._api = twitter.Api(username=Config.consumer_key, 
-                                password=Config.consumer_secret,
+	self._api = twitter.Api(consumer_key=Config.consumer_key, 
+                                consumer_secret=Config.consumer_secret,
                                 access_token_key=Config.access_token_key,
                                 access_token_secret=Config.access_token_secret)
         try:
@@ -50,22 +50,26 @@ class TwitterBot(object):
         try:
             con = sqlite.connect(TWITTERBOT_DB)
             con.isolation_level = None
-            twitts = self.search_tag(searchtag)
-            for twitt in reversed(twitts['entries']):
+
+            db_max = con.execute("SELECT MAX(id) FROM twitts")
+            max_id = db_max.fetchone()[0]
+
+            twitts = self._api.GetSearch("#"+searchtag, include_entities=True, count=100,lang='en', since_id=max_id)
+            for twitt in twitts:
                 try:
-                    twitt_id = twitt.id.split(':')[2]
+                    twitt_id = twitt.id
                 except IndexError:
-                    twitt_id = twitt.id.split(':')
-                twitt_author = twitt.author.split(' ')[0]
-                twitt_content = twitt.title
+                    twitt_id = twitt.id
+                twitt_author = twitt.user.screen_name.encode("utf8")
+                twitt_content = twitt.text
 
-                if self.user == twitt_author:
+                # Check if searchtag is included in text
+                for hashtag in twitt.hashtags:
+                    if hashtag.text.lower() != searchtag:
+                        continue
+
+		if self.user == twitt_author:
                     # I don't want to RT my own twitts!
-                    continue
-
-                db_id = con.execute("SELECT id FROM twitts WHERE id MATCH ?", [twitt_id])
-                if db_id.fetchall():
-                    # We already twitted this!
                     continue
 
                 # Avoid duplicated twitts because of retwitting
@@ -94,22 +98,6 @@ class TwitterBot(object):
         except sqlite.Error, e:
             log.fatal("SQLite error: %s" % str(e))
             sys.exit(1)
-
-    def search_tag(self, tag, lang='en'):
-        url = 'http://search.twitter.com/search.atom'
-        data = urllib.urlencode({'tag' : tag, 'lang' : lang})
-        try:
-            opener = urllib2.build_opener()
-            opener.addheaders = [ ( 'User-agent', 'Mozilla/5.0' ) ]
-            req = urllib2.Request(url, data)
-        except urllib2.HTTPError, err:
-            print str(err)
-            return {}
-        else:
-            d = feedparser.parse(opener.open(req).read())
-            if d.bozo == 1:
-                return {}
-            return d
 
 
 if __name__ == "__main__":

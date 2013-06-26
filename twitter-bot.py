@@ -102,7 +102,7 @@ class TwitterBot(object):
 
 if __name__ == "__main__":
     if not Config.consumer_key or not Config.consumer_secret or not Config.access_token_key or not Config.access_token_secret:
-        log.fatal("Please, fill the confion file")
+        log.fatal("Please, fill the configuration file")
         sys.exit(1)
 
     usage = "usage: %prog [options]"

@@ -29,6 +29,7 @@ class Config(ConfigSection):
     consumer_secret = ''
     access_token_key = ''
     access_token_secret = ''
+    blacklist = ''
 
 class TwitterBot(object):
     _rt_regex = re.compile(r"^(RT @\w+: )+(?P<tweet>.*)$")
@@ -70,6 +71,9 @@ class TwitterBot(object):
 
 		if self.user == twitt_author:
                     # I don't want to RT my own twitts!
+                    continue
+		if twitt_author in Config.blacklist.split(','):
+                    # Don't tweet people in blacklist
                     continue
 
                 # Avoid duplicated twitts because of retwitting
